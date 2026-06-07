@@ -1,5 +1,4 @@
 from scapy.all import sniff,IP ,TCP ,UDP,ICMP
-from scapy.all import IP
 from datetime import datetime
 
 class PacketAnalyzer:
@@ -16,6 +15,7 @@ class PacketAnalyzer:
         if packet.haslayer(IP):
             src=packet[IP].src
             dst=packet[IP].dst
+            service=self._get_service(packet)
             protocol=self._get_protocol(packet)
             if src in self.ip_counter:
                 self.ip_counter[src]+=1
@@ -30,11 +30,15 @@ class PacketAnalyzer:
             "src":src,
             "dst":dst,
             "protocol":protocol,
+            "service":service,
             "count":self.ip_counter[src]
         }
         self.packet_log.append(entry)
         self.packet_captured+=1
-        print(f"[{timestamp}] {protocol} | {src} -> {dst}")
+        print(f"[{timestamp}] {service} | {src} -> {dst}")
+    def get_top_ips(self,n=5):
+        sorted_ips=sorted(self.ip_counter.items(),key=lambda x : x[1], reverse=True)
+        return sorted_ips
     def _get_protocol(self,packet):
         if packet.haslayer(TCP):
             return "TCP"
@@ -61,3 +65,34 @@ class PacketAnalyzer:
             print("run as administrator!")
         except Exception as e:
             print(f"error: {e}")
+    def _get_service(self,packet):
+        services={
+            80:"HTTP",
+            443:"HTTPS",
+            53:"DNS",
+            22:"SSH",
+            25:"SMTP",
+            3306:"MySQL",
+            8080:"HTTP-ALT"
+        }
+        if packet.haslayer(TCP):
+            port=packet[TCP].dport
+            return services.get(port,f"TCP: {port}")
+        elif packet.haslayer(UDP):
+            port=packet[UDP].dport
+            return services.get(port,f"UDP: {port}")
+        return "OTHER"
+    def get_protocol_breakdown(self):
+        counts={"TCP":0,"UDP":0,"OTHERS":0}
+        for entry in self.packet_log:
+            protocol=entry["protocol"]
+            if protocol in counts:
+                counts[protocol]+=1
+            else:
+                counts["OTHERS"]+=1
+        total=self.packet_captured
+        breakdown={}
+        for proto,count in counts.items():
+            if total>0:
+                breakdown[proto]=round((count/total)*100,1)
+        return breakdown
