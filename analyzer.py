@@ -17,14 +17,11 @@ class PacketAnalyzer:
             dst=packet[IP].dst
             service=self._get_service(packet)
             protocol=self._get_protocol(packet)
-            if src in self.ip_counter:
-                self.ip_counter[src]+=1
-            else:
-                self.ip_counter[src]=1
+            self.ip_counter[src]=self.ip_counter.get(src,0)+1
             if self.ip_counter[src]>=self.threshold:
                 if src not in self.suspicious_ip:
                     self.suspicious_ip.append(src)
-                    print(f"suspicious ip: {src} ({self.ip_counter[src]}) packets")
+                    print(f"\n⚠️Alert !suspicious ip: {src} ({self.ip_counter[src]}) packets")
         entry={
             "time":timestamp,
             "src":src,
@@ -38,7 +35,7 @@ class PacketAnalyzer:
         print(f"[{timestamp}] {service} | {src} -> {dst}")
     def get_top_ips(self,n=5):
         sorted_ips=sorted(self.ip_counter.items(),key=lambda x : x[1], reverse=True)
-        return sorted_ips
+        return sorted_ips[:n]
     def _get_protocol(self,packet):
         if packet.haslayer(TCP):
             return "TCP"
@@ -56,11 +53,26 @@ class PacketAnalyzer:
             "top_ip":max(self.ip_counter,key=self.ip_counter.get) if self.ip_counter else "None",
 
         }
-    def start_capture(self,count=20):
+    def start_capture(self, count=20):
+        from scapy.all import conf
+        
         print(f"starting capture... ({count} packets)")
-        print("-"*50)
+        
         try:
-            sniff(prn=self.process_packet,count=count)
+            active_iface_name = conf.iface.name
+            print(f"Listening on interface: {active_iface_name}")
+            print("-"*50)
+            
+           
+            sniff(
+                iface=active_iface_name, 
+                prn=self.process_packet, 
+                count=count, 
+                store=False,
+                promisc=False, 
+                filter="ip"
+            )
+            
         except PermissionError:
             print("run as administrator!")
         except Exception as e:
