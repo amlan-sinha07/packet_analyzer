@@ -44,7 +44,7 @@ class PacketAnalyzer:
         elif packet.haslayer(ICMP):
             return "ICMP"
         else:
-            return "others"
+            return "OTHERS"
     def get_stats(self):
         return {
             "total":self.packet_captured,
@@ -93,9 +93,11 @@ class PacketAnalyzer:
         elif packet.haslayer(UDP):
             port=packet[UDP].dport
             return services.get(port,f"UDP: {port}")
+        elif packet.haslayer(ICMP):
+            return f"ICMP type: {packet[ICMP].type}"
         return "OTHER"
     def get_protocol_breakdown(self):
-        counts={"TCP":0,"UDP":0,"OTHERS":0}
+        counts={"TCP":0,"UDP":0,"ICMP":0,"OTHERS":0}
         for entry in self.packet_log:
             protocol=entry["protocol"]
             if protocol in counts:
